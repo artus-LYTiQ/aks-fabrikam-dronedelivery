@@ -40,7 +40,7 @@ The prerequisites for the [AKS secure baseline cluster](./) are now completed wi
 
    ```bash
    # [This takes about five minutes to run.]
-   az deployment group create --resource-group rg-enterprise-networking-hubs --template-file networking/hub-default.json --parameters location=eastus2
+   az deployment group create --resource-group rg-enterprise-networking-hubs --template-file networking/hub-default.json --parameters location=eastus
    ```
 
 1. Create the spoke network into which the AKS cluster and adjacent resources will be deployed.
@@ -59,7 +59,7 @@ The prerequisites for the [AKS secure baseline cluster](./) are now completed wi
 
    ```bash
    # [This takes about ten minutes to run.]
-   az deployment group create --resource-group rg-enterprise-networking-spokes --template-file networking/spoke-shipping-dronedelivery.json --parameters location=eastus2 hubVnetResourceId="${HUB_VNET_ID}"
+   az deployment group create --resource-group rg-enterprise-networking-spokes --template-file networking/spoke-shipping-dronedelivery.json --parameters location=eastus hubVnetResourceId="${HUB_VNET_ID}"
    ```
 
    The spoke creation will emit the following:
@@ -82,7 +82,7 @@ The prerequisites for the [AKS secure baseline cluster](./) are now completed wi
 
    ```bash
    # [This takes about three minutes to run.]
-   az deployment group create --resource-group rg-enterprise-networking-hubs --template-file networking/hub-regionA.json --parameters location=eastus2 nodepoolSubnetResourceIds="['${NODEPOOL_SUBNET_RESOURCEIDS}']" serviceTagsLocation=EastUS2
+   az deployment group create --resource-group rg-enterprise-networking-hubs --template-file networking/hub-regionA.json --parameters location=eastus nodepoolSubnetResourceIds="['${NODEPOOL_SUBNET_RESOURCEIDS}']" serviceTagslocation=eastus
    ```
 
    > :book: At this point, the networking team has delivered a spoke in which The Drone Delivery's app team can deploy their AKS cluster. The networking team provides the necessary information to the app team to reference in their Infrastructure-as-Code artifacts.
