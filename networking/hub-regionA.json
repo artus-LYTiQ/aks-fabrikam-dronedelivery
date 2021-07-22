@@ -9,7 +9,7 @@
             }
         },
         "location": {
-            "defaultValue": "eastus2",
+            "defaultValue": "eastus",
             "type": "string",
             "allowedValues": [
                 "australiaeast",
@@ -70,11 +70,11 @@
         },
         "serviceTagsLocation": {
             "type": "string",
-            "defaultValue": "EastUS2",
+            "defaultValue": "EastUS",
             "allowedValues": [
                 "CentralUS",
                 "WestUS",
-                "EastUS2",
+                "EastUS",
                 "WestUS2",
                 "FranceCentral",
                 "NorthEurope",
