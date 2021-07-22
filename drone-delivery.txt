@@ -1,0 +1,44 @@
+export MSYS_NO_PATHCONV=1
+
+
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 -out appgw.crt -keyout appgw.key -subj "/CN=dronedelivery.fabrikam.com/O=Fabrikam Drone Delivery"
+openssl pkcs12 -export -out appgw.pfx -in appgw.crt -inkey appgw.key -passout pass:
+
+
+
+az group create --name rg-enterprise-networking-hubs --location centralus
+az group create --name rg-enterprise-networking-spokes --location centralus
+# [This takes about five minutes to run.]
+az deployment group create --resource-group rg-enterprise-networking-hubs --template-file networking/hub-default.json --parameters location=eastus
+HUB_VNET_ID=$(az deployment group show -g rg-enterprise-networking-hubs -n hub-default --query properties.outputs.hubVnetId.value -o tsv)
+# [This takes about ten minutes to run.]
+az deployment group create --resource-group rg-enterprise-networking-spokes --template-file networking/spoke-shipping-dronedelivery.json --parameters location=eastus hubVnetResourceId="${HUB_VNET_ID}"
+NODEPOOL_SUBNET_RESOURCEIDS=$(az deployment group show -g rg-enterprise-networking-spokes -n spoke-shipping-dronedelivery --query properties.outputs.nodepoolSubnetResourceIds.value -o tsv)
+# [This takes about three minutes to run.]
+az deployment group create --resource-group rg-enterprise-networking-hubs --template-file networking/hub-regionA.json --parameters location=eastus nodepoolSubnetResourceIds="['${NODEPOOL_SUBNET_RESOURCEIDS}']" serviceTagsLocation=EastUS
+
+# [This takes less than two  minutes.]
+az deployment sub create --name workload-stamp-prereqs --location eastus --template-file ./workload/workload-stamp-prereqs.json --parameters resourceGroupName=rg-shipping-dronedelivery resourceGroupLocation=eastus
+az deployment sub create --name cluster-stamp-prereqs --location eastus --template-file cluster-stamp-prereqs.json --parameters resourceGroupName=rg-shipping-dronedelivery resourceGroupLocation=eastus
+
+DELIVERY_ID_NAME=$(az deployment group show -g rg-shipping-dronedelivery -n workload-stamp-prereqs-dep --query properties.outputs.deliveryIdName.value -o tsv) && \
+DELIVERY_ID_PRINCIPAL_ID=$(az identity show -g rg-shipping-dronedelivery -n $DELIVERY_ID_NAME --query principalId -o tsv) && \
+DRONESCHEDULER_ID_NAME=$(az deployment group show -g rg-shipping-dronedelivery -n workload-stamp-prereqs-dep --query properties.outputs.droneSchedulerIdName.value -o tsv) && \
+DRONESCHEDULER_ID_PRINCIPAL_ID=$(az identity show -g rg-shipping-dronedelivery -n $DRONESCHEDULER_ID_NAME --query principalId -o tsv) && \
+WORKFLOW_ID_NAME=$(az deployment group show -g rg-shipping-dronedelivery -n workload-stamp-prereqs-dep --query properties.outputs.workflowIdName.value -o tsv) && \
+WORKFLOW_ID_PRINCIPAL_ID=$(az identity show -g rg-shipping-dronedelivery -n $WORKFLOW_ID_NAME --query principalId -o tsv) && \
+INGRESS_CONTROLLER_ID_NAME=$(az deployment group show -g rg-shipping-dronedelivery -n cluster-stamp-prereqs-identities --query properties.outputs.appGatewayControllerIdName.value -o tsv) && \
+INGRESS_CONTROLLER_ID_PRINCIPAL_ID=$(az identity show -g rg-shipping-dronedelivery -n $INGRESS_CONTROLLER_ID_NAME --query principalId -o tsv)
+until az ad sp show --id ${DELIVERY_ID_PRINCIPAL_ID} &> /dev/null ; do echo "Waiting for AAD propagation" && sleep 5; done
+until az ad sp show --id ${DRONESCHEDULER_ID_PRINCIPAL_ID} &> /dev/null ; do echo "Waiting for AAD propagation" && sleep 5; done
+until az ad sp show --id ${WORKFLOW_ID_PRINCIPAL_ID} &> /dev/null ; do echo "Waiting for AAD propagation" && sleep 5; done
+until az ad sp show --id ${INGRESS_CONTROLLER_ID_PRINCIPAL_ID} &> /dev/null ; do echo "Waiting for AAD propagation" && sleep 5; done
+TARGET_VNET_RESOURCE_ID=$(az deployment group show -g rg-enterprise-networking-spokes -n spoke-shipping-dronedelivery --query properties.outputs.clusterVnetResourceId.value -o tsv)
+
+# [This takes about 10 minutes.]
+az deployment group create -f ./workload/workload-stamp.json -g rg-shipping-dronedelivery -p droneSchedulerPrincipalId=$DRONESCHEDULER_ID_PRINCIPAL_ID -p workflowPrincipalId=$WORKFLOW_ID_PRINCIPAL_ID -p deliveryPrincipalId=$DELIVERY_ID_PRINCIPAL_ID -p acrResourceGroupName=$ACR_RESOURCE_GROUP
+ACR_NAME=$(az deployment group show -g rg-shipping-dronedelivery -n workload-stamp --query properties.outputs.acrName.value -o tsv) && \
+ACR_SERVER=$(az acr show -n $ACR_NAME --query loginServer -o tsv)
+
+# [This takes about 15 minutes.]
+az deployment group create --resource-group rg-shipping-dronedelivery --template-file cluster-stamp.json --parameters targetVnetResourceId=$TARGET_VNET_RESOURCE_ID k8sRbacAadProfileAdminGroupObjectID=$K8S_RBAC_AAD_PROFILE_ADMIN_GROUP_OBJECTID k8sRbacAadProfileTenantId=$K8S_RBAC_AAD_PROFILE_TENANTID appGatewayListenerCertificate=$APP_GATEWAY_LISTENER_CERTIFICATE aksIngressControllerCertificate=$AKS_INGRESS_CONTROLLER_CERTIFICATE_BASE64 deliveryIdName=$DELIVERY_ID_NAME  droneSchedulerIdName=$DRONESCHEDULER_ID_NAME workflowIdName=$WORKFLOW_ID_NAME ingressControllerIdName=$INGRESS_CONTROLLER_ID_NAME ingressControllerPrincipalId=$INGRESS_CONTROLLER_ID_PRINCIPAL_ID acrResourceGroupName=$ACR_RESOURCE_GROUP acrName=$ACR_NAME
