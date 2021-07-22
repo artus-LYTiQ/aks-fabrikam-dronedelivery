@@ -30,13 +30,13 @@ The prerequisites for the [AKS secure baseline cluster](./) are now completed wi
 
 1. Create the regional network hub.
 
-   > :book: When the networking team created the regional hub for eastus2, it didn't have any spokes yet defined, yet the networking team always lays out a base hub following a standard pattern (defined in `hub-default.json`). A hub always contains an Azure Firewall (with some org-wide policies), Azure Bastion, a gateway subnet for VPN connectivity, and Azure Monitor for network observability. They follow Microsoft's recommended sizing for the subnets.
+   > :book: When the networking team created the regional hub for eastus, it didn't have any spokes yet defined, yet the networking team always lays out a base hub following a standard pattern (defined in `hub-default.json`). A hub always contains an Azure Firewall (with some org-wide policies), Azure Bastion, a gateway subnet for VPN connectivity, and Azure Monitor for network observability. They follow Microsoft's recommended sizing for the subnets.
    >
    > The networking team has decided that `10.200.[0-9].0` will be where all regional hubs are homed on their organization's network space.
    >
    > Note: Azure Bastion and the On-Prem Connectivity is not actually deployed in this reference implementation, just the subnets for them are.
    >
-   > In addition to the eastus2 regional hub (that you're deploying) you can assume there are similar deployed as well in in other Azure regions in this resource group.
+   > In addition to the eastus regional hub (that you're deploying) you can assume there are similar deployed as well in in other Azure regions in this resource group.
 
    ```bash
    # [This takes about five minutes to run.]
@@ -70,7 +70,7 @@ The prerequisites for the [AKS secure baseline cluster](./) are now completed wi
 
 1. Update the shared, regional hub deployment to account for the requirements of the spoke.
 
-   > :book: Now that their hub has its first spoke, the hub can no longer run off of the generic hub template. The networking team creates a named hub template (e.g. `hub-eastus2.json`) to forever represent this specific hub and the features this specific hub needs in order to support its spokes' requirements. As new spokes are attached and new requirements arise for the regional hub, they will be added to this template file.
+   > :book: Now that their hub has its first spoke, the hub can no longer run off of the generic hub template. The networking team creates a named hub template (e.g. `hub-eastus.json`) to forever represent this specific hub and the features this specific hub needs in order to support its spokes' requirements. As new spokes are attached and new requirements arise for the regional hub, they will be added to this template file.
 
    First, get the resource id of the **snet-clusternode** subnet found in the spoke network. This value is used ..
 
